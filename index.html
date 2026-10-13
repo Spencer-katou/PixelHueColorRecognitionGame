@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>像素色辨 PIXEL HUE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <style>
+    /* ===================================================
+       色票：Sweetie 16（經典 16 色像素調色盤）
+       =================================================== */
+    :root {
+      --ink: #1a1c2c;
+      --plum: #5d275d;
+      --red: #b13e53;
+      --orange: #ef7d57;
+      --yellow: #ffcd75;
+      --lime: #a7f070;
+      --green: #38b764;
+      --teal: #257179;
+      --navy: #29366f;
+      --blue: #3b5dc9;
+      --sky: #41a6f6;
+      --cyan: #73eff7;
+      --white: #f4f4f4;
+      --mist: #94b0c2;
+      --slate: #566c86;
+      --steel: #333c57;
+
+      --px: 4px;                                   /* 一個「像素」的大小 */
+      /* 遊戲區大小：跟著視窗高度縮放（扣掉上下 HUD、按鈕約 265px），最小 360、最大 560 */
+      --board: min(88vw, clamp(360px, calc(100dvh - 265px), 560px));
+      --font-en: 'Press Start 2P', 'DotGothic16', monospace;
+      --font-zh: 'DotGothic16', 'Press Start 2P', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100dvh;
+      font-family: var(--font-zh);
+      color: var(--white);
+      background-color: var(--ink);
+      /* 像素格紋背景 */
+      background-image:
+        linear-gradient(45deg, rgba(255,255,255,.025) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.025) 75%),
+        linear-gradient(45deg, rgba(255,255,255,.025) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.025) 75%);
+      background-size: 32px 32px;
+      background-position: 0 0, 16px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      -webkit-font-smoothing: none;
+      user-select: none;
+    }
+
+    /* CRT 掃描線 */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(to bottom, rgba(0,0,0,.18) 0 2px, transparent 2px 4px);
+      z-index: 99;
+    }
+
+    /* ---------- 像素外框（共用） ---------- */
+    .pixel-box {
+      background: var(--steel);
+      box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink),
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        inset var(--px) var(--px) 0 0 rgba(255,255,255,.12),
+        inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 rgba(0,0,0,.35);
+    }
+
+    /* ---------- 頂部標題列 ---------- */
+    .topbar {
+      width: 100%;
+      max-width: 940px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px 4px;
+    }
+    .logo {
+      font-family: var(--font-en);
+      font-size: 18px;
+      letter-spacing: 2px;
+      color: var(--yellow);
+      text-shadow: 3px 3px 0 var(--red);
+    }
+    .logo small {
+      font-family: var(--font-zh);
+      font-size: 16px;
+      color: var(--mist);
+      text-shadow: none;
+      margin-left: 10px;
+      letter-spacing: 1px;
+    }
+
+    /* ---------- 主版面 ---------- */
+    .layout {
+      width: 100%;
+      max-width: 940px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 32px;
+      padding: 12px 20px 20px;
+      align-items: start;
+    }
+
+    .stage {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: calc(var(--board) + 8px);
+    }
+
+    /* ---------- HUD 數據列 ---------- */
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .stat {
+      padding: 8px 6px 10px;
+      text-align: center;
+    }
+    .stat-label {
+      font-family: var(--font-en);
+      font-size: 8px;
+      color: var(--mist);
+      letter-spacing: 1px;
+    }
+    .stat-value {
+      font-family: var(--font-en);
+      font-size: 16px;
+      margin-top: 6px;
+      color: var(--white);
+    }
+    .stat-value.score { color: var(--lime); }
+    .stat-value.best  { color: var(--yellow); }
+    .stat-value.danger { color: var(--orange); animation: blink .5s steps(1) infinite; }
+
+    /* ---------- 時間條 ---------- */
+    .timebar {
+      display: grid;
+      grid-template-columns: repeat(20, 1fr);
+      gap: 3px;
+      padding: 6px;
+      background: var(--ink);
+      box-shadow: 0 0 0 var(--px) var(--slate);
+      margin: 0 var(--px);
+    }
+    .seg {
+      height: 12px;
+      background: var(--green);
+      box-shadow: inset 0 -3px 0 rgba(0,0,0,.3);
+    }
+    .seg.warn  { background: var(--yellow); }
+    .seg.alert { background: var(--orange); }
+    .seg.off   { background: var(--steel); box-shadow: none; }
+
+    /* ---------- 時間條 + 連擊倍率 ---------- */
+    .meter-row { display: flex; gap: 16px; align-items: center; }
+    .meter-row .timebar { flex: 1; }
+
+    .combo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px 6px;
+      margin-right: var(--px);
+      min-width: 118px;
+    }
+    .combo-mult {
+      font-family: var(--font-en);
+      font-size: 14px;
+      color: var(--mist);
+      width: 34px;
+    }
+    .combo-pips { display: flex; gap: 3px; }
+    .combo-pips span { width: 9px; height: 12px; background: var(--ink); }
+    .combo-pips span.on { background: var(--cyan); box-shadow: inset 0 -3px 0 rgba(0,0,0,.3); }
+
+    /* 倍率越高顏色越熱 */
+    .combo[data-mult="2"] .combo-mult { color: var(--cyan); }
+    .combo[data-mult="3"] .combo-mult { color: var(--yellow); }
+    .combo[data-mult="4"] .combo-mult { color: var(--orange); animation: blink .4s steps(1) infinite; }
+    .combo[data-mult="3"] .combo-pips span.on { background: var(--yellow); }
+    .combo[data-mult="4"] .combo-pips span.on { background: var(--orange); }
+    .combo.bump { animation: pop .3s steps(3); }
+    .combo.break { animation: shake .25s steps(4); }
+
+    /* 倍率提升時，在遊戲區中央閃一下 */
+    .combo-flash {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-en);
+      font-size: 30px;
+      color: var(--yellow);
+      text-shadow: 4px 4px 0 var(--red), -2px -2px 0 var(--ink);
+      pointer-events: none;
+      z-index: 6;
+      animation: comboFlash .7s steps(7) forwards;
+    }
+    @keyframes comboFlash {
+      0%   { transform: scale(1.6); opacity: 1; }
+      30%  { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1); opacity: 0; }
+    }
+
+    /* ---------- 遊戲區 ---------- */
+    .board-wrap {
+      position: relative;
+      width: calc(var(--board) + 8px);
+      height: calc(var(--board) + 8px);
+      padding: var(--px);
+    }
+    .board-wrap.shake { animation: shake .25s steps(4); }
+
+    #board {
+      width: var(--board);
+      height: var(--board);
+      display: grid;
+      gap: 6px;
+      padding: 10px;
+      background: var(--ink);
+    }
+
+    .tile {
+      cursor: pointer;
+      position: relative;
+      box-shadow: inset 0 -4px 0 rgba(0,0,0,.18);   /* 所有方塊同樣的立體感，不影響辨色 */
+      transition: transform .06s;
+    }
+    .tile:hover { outline: 3px solid var(--white); outline-offset: -3px; }
+    .tile:active { transform: scale(.94); }
+    .tile.miss { animation: miss .3s steps(3); }
+    .tile.miss::after {
+      content: '×';
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-en);
+      font-size: clamp(12px, 3vw, 28px);
+      color: var(--white);
+      text-shadow: 2px 2px 0 var(--ink);
+    }
+    .tile.reveal {
+      outline: 5px solid var(--white);
+      outline-offset: -5px;
+      animation: blink .25s steps(1) infinite;
+      z-index: 1;
+    }
+
+    /* 答對時的 +1 */
+    .float-text {
+      position: absolute;
+      font-family: var(--font-en);
+      font-size: 16px;
+      color: var(--lime);
+      white-space: nowrap;
+      text-shadow: 3px 3px 0 var(--ink);
+      pointer-events: none;
+      animation: floatUp .6s steps(6) forwards;
+      z-index: 5;
+    }
+
+    /* ---------- 覆蓋畫面（開始 / 暫停 / 結束） ---------- */
+    .overlay {
+      position: absolute;
+      inset: var(--px);
+      background: var(--ink);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 12px;
+      padding: 16px;
+      z-index: 10;
+    }
+    .overlay.show { display: flex; }
+    .overlay.dim { background: rgba(26, 28, 44, .94); }
+
+    .big-title {
+      font-family: var(--font-en);
+      font-size: 30px;
+      line-height: 1.3;
+      color: var(--yellow);
+      text-shadow: 4px 4px 0 var(--red), 8px 8px 0 var(--plum);
+    }
+    .subtitle { font-size: 22px; color: var(--cyan); letter-spacing: 4px; }
+    .hint { font-size: 16px; color: var(--mist); line-height: 1.8; }
+    .press { font-family: var(--font-en); font-size: 10px; color: var(--white); animation: blink 1s steps(1) infinite; }
+
+    /* 開始畫面的示意方塊 */
+    .demo-tiles { display: grid; grid-template-columns: repeat(4, 22px); gap: 4px; }
+    .demo-tiles span { width: 22px; height: 22px; background: var(--sky); }
+    .demo-tiles span.odd { background: #5ab4f8; animation: blink 1.2s steps(1) infinite; }
+
+    .countdown {
+      font-family: var(--font-en);
+      font-size: 72px;
+      color: var(--yellow);
+      text-shadow: 6px 6px 0 var(--red);
+      animation: pop .4s steps(4);
+    }
+
+    /* 結算畫面 */
+    .result-score {
+      font-family: var(--font-en);
+      font-size: 40px;
+      color: var(--lime);
+      text-shadow: 5px 5px 0 var(--teal);
+    }
+    .result-label { font-family: var(--font-en); font-size: 10px; color: var(--mist); letter-spacing: 2px; }
+    .new-record {
+      font-family: var(--font-en);
+      font-size: 11px;
+      color: var(--ink);
+      background: var(--yellow);
+      padding: 6px 10px;
+      animation: blink .6s steps(1) infinite;
+    }
+    .rank-title { font-size: 22px; color: var(--yellow); }
+    .rank-comment { font-size: 15px; color: var(--white); line-height: 1.5; max-width: 330px; }
+    .result-stats { font-size: 14px; color: var(--mist); }
+
+    .entry-form { display: flex; gap: 12px; align-items: center; }
+    .entry-form input {
+      width: 160px;
+      font-family: var(--font-zh);
+      font-size: 16px;
+      padding: 6px 10px;
+      color: var(--white);
+      background: var(--steel);
+      border: none;
+      outline: none;
+      box-shadow: 0 0 0 var(--px) var(--mist);
+    }
+    .entry-form input:focus { box-shadow: 0 0 0 var(--px) var(--yellow); }
+    .entry-note { font-size: 15px; color: var(--mist); }
+    .entry-note.ok { color: var(--lime); }
+
+    /* ---------- 像素按鈕 ---------- */
+    .controls { display: flex; gap: 8px; justify-content: space-between; }
+
+    .btn {
+      --c: var(--green);
+      font-family: var(--font-zh);
+      font-size: 16px;
+      color: var(--ink);
+      background: var(--c);
+      border: none;
+      padding: 9px 14px 11px;
+      white-space: nowrap;
+      cursor: pointer;
+      margin: var(--px);
+      box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink),
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        inset 0 calc(var(--px) * -1) 0 0 rgba(0,0,0,.3),
+        inset var(--px) var(--px) 0 0 rgba(255,255,255,.35);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn:hover { filter: brightness(1.12); }
+    .btn:active {
+      transform: translateY(2px);
+      box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink),
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        inset var(--px) var(--px) 0 0 rgba(0,0,0,.25);
+    }
+    .btn:disabled { --c: var(--slate); color: var(--steel); cursor: not-allowed; filter: none; transform: none; }
+    .btn.yellow { --c: var(--yellow); }
+    .btn.orange { --c: var(--orange); }
+    .btn.sky    { --c: var(--sky); }
+    .btn.small  { font-size: 14px; padding: 6px 10px 8px; }
+    .btn .key {
+      font-family: var(--font-en);
+      font-size: 7px;
+      background: rgba(26,28,44,.25);
+      padding: 3px 4px;
+    }
+
+    .icon-btn {
+      font-family: var(--font-en);
+      font-size: 10px;
+      color: var(--white);
+      background: var(--steel);
+      border: none;
+      padding: 10px 12px;
+      cursor: pointer;
+      box-shadow: 0 0 0 var(--px) var(--slate);
+    }
+    .icon-btn:hover { background: var(--navy); }
+
+    /* ---------- 右側面板：排行榜 + 規則 ---------- */
+    .side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+    .panel { padding: 18px 18px 20px; }
+    .panel-title {
+      font-family: var(--font-en);
+      font-size: 11px;
+      color: var(--yellow);
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .panel-title .zh { font-family: var(--font-zh); font-size: 15px; color: var(--mist); letter-spacing: 0; }
+
+    .lb { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .lb li {
+      display: grid;
+      grid-template-columns: 34px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 5px 10px;
+      background: rgba(26,28,44,.45);
+      font-size: 15px;
+    }
+    .lb li:nth-child(1) .lb-rank { color: var(--yellow); }
+    .lb li:nth-child(2) .lb-rank { color: var(--white); }
+    .lb li:nth-child(3) .lb-rank { color: var(--orange); }
+    .lb-rank { font-family: var(--font-en); font-size: 10px; color: var(--mist); }
+    .lb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lb-score { font-family: var(--font-en); font-size: 12px; color: var(--lime); }
+    .lb li.me { background: var(--navy); box-shadow: 0 0 0 3px var(--cyan); animation: blink .5s steps(1) 6; }
+    .lb .empty { display: block; color: var(--mist); text-align: center; padding: 18px 0; font-size: 15px; background: none; }
+
+    .rules { list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 15px; line-height: 1.6; color: var(--white); }
+    .rules li::before { content: '▶ '; color: var(--cyan); font-size: 11px; }
+    .keys { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; font-size: 14px; color: var(--mist); }
+    kbd {
+      font-family: var(--font-en);
+      font-size: 8px;
+      color: var(--ink);
+      background: var(--mist);
+      padding: 4px 6px;
+      margin-right: 4px;
+      box-shadow: inset 0 -2px 0 var(--slate);
+    }
+
+    .clear-btn {
+      font-family: var(--font-zh);
+      font-size: 13px;
+      color: var(--mist);
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .clear-btn:hover { color: var(--orange); }
+
+    /* ---------- 動畫（steps 讓動作有像素頓格感） ---------- */
+    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes shake {
+      0%   { transform: translateX(0); }
+      25%  { transform: translateX(-8px); }
+      50%  { transform: translateX(8px); }
+      75%  { transform: translateX(-4px); }
+      100% { transform: translateX(0); }
+    }
+    @keyframes miss { 50% { filter: brightness(.55); } }
+    @keyframes floatUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-36px); opacity: 0; } }
+    @keyframes pop { from { transform: scale(1.8); } to { transform: scale(1); } }
+
+    /* ---------- 窄螢幕：改成上下排列 ---------- */
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; justify-items: center; }
+      .side { width: 100%; max-width: calc(var(--board) + 8px); }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="logo">PIXEL HUE<small>像素色辨挑戰</small></div>
+    <button class="icon-btn" id="muteBtn" title="音效開關（M）">♪ ON</button>
+  </header>
+
+  <div class="layout">
+    <!-- ============ 左：遊戲主體 ============ -->
+    <main class="stage">
+      <section class="hud">
+        <div class="stat pixel-box"><div class="stat-label">SCORE</div><div class="stat-value score" id="scoreEl">0</div></div>
+        <div class="stat pixel-box"><div class="stat-label">BEST</div><div class="stat-value best" id="bestEl">0</div></div>
+        <div class="stat pixel-box"><div class="stat-label">GRID</div><div class="stat-value" id="gridEl">2×2</div></div>
+        <div class="stat pixel-box"><div class="stat-label">TIME</div><div class="stat-value" id="timeEl">60</div></div>
+      </section>
+
+      <div class="meter-row">
+        <div class="timebar" id="timebar"></div>
+        <div class="combo pixel-box" id="comboEl" data-mult="1" title="連續答對 5 題，倍率 +1（最高 ×4）">
+          <span class="combo-mult" id="multEl">×1</span>
+          <span class="combo-pips" id="pipsEl"><span></span><span></span><span></span><span></span><span></span></span>
+        </div>
+      </div>
+
+      <div class="board-wrap pixel-box" id="boardWrap">
+        <div id="board"></div>
+
+        <!-- 開始畫面 -->
+        <div class="overlay show" id="startScreen">
+          <div class="big-title">PIXEL<br>HUE</div>
+          <div class="subtitle">像素色辨挑戰</div>
+          <div class="demo-tiles">
+            <span></span><span></span><span></span><span></span>
+            <span></span><span></span><span class="odd"></span><span></span>
+          </div>
+          <div class="hint">60 秒內，找出顏色不一樣的方塊<br>連續答對還能疊加得分倍率</div>
+          <button class="btn yellow" id="startBigBtn">▶ 開始遊戲</button>
+          <div class="press">PRESS ENTER</div>
+        </div>
+
+        <!-- 倒數 -->
+        <div class="overlay" id="countScreen">
+          <div class="countdown" id="countEl">3</div>
+        </div>
+
+        <!-- 暫停 -->
+        <div class="overlay" id="pauseScreen">
+          <div class="big-title" style="font-size:28px">PAUSED</div>
+          <div class="hint">遊戲暫停中，方塊已隱藏</div>
+          <button class="btn" id="resumeBigBtn">▶ 繼續</button>
+          <div class="press">PRESS SPACE</div>
+        </div>
+
+        <!-- 結算 -->
+        <div class="overlay dim" id="resultScreen">
+          <div class="result-label">FINAL SCORE</div>
+          <div class="result-score" id="resultScore">0</div>
+          <div class="new-record" id="newRecord" hidden>NEW RECORD!</div>
+          <div class="rank-title" id="rankTitle"></div>
+          <div class="rank-comment" id="rankComment"></div>
+          <div class="result-stats" id="resultStats"></div>
+
+          <form class="entry-form" id="entryForm">
+            <input id="nameInput" maxlength="8" placeholder="輸入名字" autocomplete="off">
+            <button class="btn sky small" type="submit">登錄</button>
+          </form>
+          <div class="entry-note" id="entryNote"></div>
+
+          <div style="display:flex; gap:12px;">
+            <button class="btn yellow" id="againBtn">↻ 再玩一次</button>
+            <button class="btn sky" id="menuBtn">主選單</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="startBtn">▶ 開始 <span class="key">ENTER</span></button>
+        <button class="btn yellow" id="pauseBtn" disabled>❚❚ 暫停 <span class="key">SPACE</span></button>
+        <button class="btn orange" id="restartBtn">↻ 重新開始 <span class="key">R</span></button>
+      </div>
+    </main>
+
+    <!-- ============ 右：排行榜 + 規則 ============ -->
+    <aside class="side">
+      <section class="panel pixel-box">
+        <div class="panel-title">HIGH SCORES <span class="zh">本機排行榜</span></div>
+        <ol class="lb" id="leaderboard"></ol>
+        <div style="text-align:right; margin-top:12px;">
+          <button class="clear-btn" id="clearBtn">清除紀錄</button>
+        </div>
+      </section>
+
+      <section class="panel pixel-box">
+        <div class="panel-title">HOW TO PLAY <span class="zh">遊戲說明</span></div>
+        <ul class="rules">
+          <li>點擊顏色和其他方塊不同的那一格</li>
+          <li>答對越多題，方塊越多、色差越小</li>
+          <li>連續答對 5 題，得分倍率 +1，最高 ×4</li>
+          <li>點錯不扣分，但連擊會中斷、倍率歸零</li>
+          <li>60 秒結束後登錄名字，挑戰排行榜</li>
+        </ul>
+        <div class="keys">
+          <span><kbd>ENTER</kbd>開始</span>
+          <span><kbd>SPACE</kbd>暫停</span>
+          <span><kbd>R</kbd>重來</span>
+          <span><kbd>M</kbd>靜音</span>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <script>
+    /* =====================================================
+       設定
+       ===================================================== */
+    const DURATION = 60 * 1000;          // 遊戲時間 60 秒
+    const SEGMENTS = 20;                 // 時間條格數（每格 3 秒）
+    const LB_SIZE = 10;                  // 排行榜保留前 10 名
+    const KEYS = {
+      board: 'pixelHue.leaderboard.v2',   // v2：改成倍率計分
+      best: 'pixelHue.best.v2',
+      name: 'pixelHue.lastName.v1',
+      mute: 'pixelHue.muted.v1',
+    };
+
+    // 連擊倍率：每連續答對 COMBO_STEP 題，倍率 +1，最高 MAX_MULT
+    const COMBO_STEP = 5;
+    const MAX_MULT = 4;
+
+    // 「答對題數」對應的格子大小（難度看題數，不看分數，倍率才不會讓難度暴衝）：
+    // 0–2 題 2×2、3–5 題 3×3、6–9 題 4×4、10–13 題 5×5、14–18 題 6×6、
+    // 19–23 題 7×7、24–29 題 8×8、30–36 題 9×9、37 題以上 10×10
+    const GRID_STEPS = [0, 3, 6, 10, 14, 19, 24, 30, 37];
+
+    // 依分數給的稱號與評語（分數含倍率，例如連續答對 30 題約 93 分）
+    const RANKS = [
+      { min: 0,  title: '黑白電視',     comment: '畫面還在暖機中……多看幾眼，顏色就會出來了！' },
+      { min: 20, title: '16 色調色盤',  comment: '基本色難不倒你，但細微的差異還能更敏銳。' },
+      { min: 40, title: '256 色顯示卡', comment: '不錯喔！你的眼睛已經升級到彩色時代。' },
+      { min: 65, title: '全彩螢幕',     comment: '厲害！大部分人到這裡已經分不出來了。' },
+      { min: 90, title: 'HDR 之眼',     comment: '這種色差你也看得到？是不是偷偷開了濾鏡？' },
+      { min: 120, title: '人體分光儀',   comment: '傳說等級。請收下這枚像素勳章。' },
+    ];
+
+    /* =====================================================
+       取得畫面元素
+       ===================================================== */
+    const $ = (id) => document.getElementById(id);
+    const board = $('board'), boardWrap = $('boardWrap'), timebar = $('timebar');
+    const scoreEl = $('scoreEl'), bestEl = $('bestEl'), gridEl = $('gridEl'), timeEl = $('timeEl');
+    const screens = {
+      start: $('startScreen'), count: $('countScreen'),
+      pause: $('pauseScreen'), result: $('resultScreen'),
+    };
+    const startBtn = $('startBtn'), pauseBtn = $('pauseBtn'), restartBtn = $('restartBtn');
+
+    /* =====================================================
+       遊戲狀態
+       ===================================================== */
+    let state = 'idle';          // idle | countdown | playing | paused | over
+    let score = 0;               // 分數（含倍率）
+    let correct = 0;             // 答對題數（決定難度）
+    let combo = 0;               // 目前連擊數
+    let maxCombo = 0;            // 本局最高連擊
+    let misses = 0;
+    let timeLeft = DURATION;
+    let lastTs = 0;
+    let rafId = null;
+    let answerIndex = -1;
+    let gridSize = 2;
+    let lastSecond = 60;
+    let timers = [];             // 倒數、結算用的 setTimeout，重來時要清掉
+    let lastScore = 0;           // 本局分數（登錄排行榜用）
+
+    /* =====================================================
+       音效：用 Web Audio API 即時產生 8-bit 方波聲
+       ===================================================== */
+    let audioCtx = null;
+    let muted = load(KEYS.mute, false);
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function beep(freq, dur, type = 'square', vol = 0.07, delay = 0) {
+      if (muted || !audioCtx) return;
+      const t = audioCtx.currentTime + delay;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(vol, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+    }
+
+    const sfx = {
+      // 答對：兩個上升音，分數越高音越高一點點
+      correct() {
+        const base = 520 + Math.min(correct, 40) * 8;
+        beep(base, 0.07);
+        beep(base * 1.5, 0.1, 'square', 0.07, 0.06);
+      },
+      wrong()  { beep(150, 0.18, 'sawtooth', 0.06); beep(110, 0.2, 'sawtooth', 0.05, 0.08); },
+      tick()   { beep(1300, 0.03, 'square', 0.035); },
+      count()  { beep(440, 0.12); },
+      go()     { beep(880, 0.25); },
+      levelUp(){ [660, 880, 1100].forEach((f, i) => beep(f, 0.06, 'triangle', 0.08, i * 0.05)); },
+      pause()  { beep(330, 0.08, 'triangle', 0.08); },
+      over()   { [784, 659, 523, 392, 262].forEach((f, i) => beep(f, 0.18, 'square', 0.07, i * 0.13)); },
+      record() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => beep(f, 0.1, 'square', 0.07, i * 0.09)); },
+      click()  { beep(600, 0.03, 'square', 0.04); },
+      comboUp(m) { [0, 4, 7, 12].map((st) => 523 * Math.pow(2, (st + m * 2) / 12)).forEach((f, i) => beep(f, 0.08, 'square', 0.07, 0.12 + i * 0.06)); },
+      comboBreak() { beep(400, 0.1, 'triangle', 0.08, 0.05); beep(250, 0.16, 'triangle', 0.08, 0.13); },
+    };
+
+    /* =====================================================
+       localStorage 讀寫（包 try/catch，避免無痕模式出錯）
+       ===================================================== */
+    function load(key, fallback) {
+      try {
+        const v = localStorage.getItem(key);
+        return v === null ? fallback : JSON.parse(v);
+      } catch (e) { return fallback; }
+    }
+    function save(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    }
+
+    function getBoard() {
+      const list = load(KEYS.board, []);
+      return Array.isArray(list) ? list : [];
+    }
+    function getBest() {
+      return Number(load(KEYS.best, 0)) || 0;
+    }
+
+    /* =====================================================
+       難度：格子大小 & 色差
+       ===================================================== */
+    function gridFor(s) {
+      let n = 2;
+      GRID_STEPS.forEach((min, i) => { if (s >= min) n = i + 2; });
+      return n;
+    }
+
+    // 明度差：一開始 20%，每答對一題縮小 7%，最小 2.5%
+    function deltaFor(s) {
+      return Math.max(2.5, 20 * Math.pow(0.93, s));
+    }
+
+    function randomColor() {
+      const h = Math.floor(Math.random() * 360);
+      const sat = 45 + Math.floor(Math.random() * 40);   // 45–85%
+      const light = 32 + Math.floor(Math.random() * 36); // 32–68%，保留上下調整空間
+      return { h, s: sat, l: light };
+    }
+
+    /* =====================================================
+       產生一回合的方塊
+       ===================================================== */
+    function newRound() {
+      const n = gridFor(correct);
+      if (n !== gridSize && correct > 0) sfx.levelUp();
+      gridSize = n;
+
+      const total = n * n;
+      answerIndex = Math.floor(Math.random() * total);
+
+      const c = randomColor();
+      const d = deltaFor(correct);
+      // 隨機決定答案比較亮還是比較暗
+      const answerL = c.l + (Math.random() < 0.5 ? d : -d);
+
+      const base = `hsl(${c.h}, ${c.s}%, ${c.l}%)`;
+      const odd  = `hsl(${c.h}, ${c.s}%, ${answerL}%)`;
+
+      board.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+      board.style.gap = n >= 8 ? '3px' : n >= 6 ? '4px' : '6px';
+
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < total; i++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.dataset.index = i;
+        tile.style.backgroundColor = i === answerIndex ? odd : base;
+        frag.appendChild(tile);
+      }
+      board.replaceChildren(frag);
+      updateHUD();
+    }
+
+    // 點擊方塊（用事件委派，只綁一次）
+    board.addEventListener('pointerdown', (e) => {
+      const tile = e.target.closest('.tile');
+      if (!tile || state !== 'playing') return;
+
+      if (Number(tile.dataset.index) === answerIndex) {
+        correct++;
+        combo++;
+        maxCombo = Math.max(maxCombo, combo);
+        const mult = multFor(combo);
+        score += mult;
+        sfx.correct();
+        showFloat(tile, '+' + mult, mult);
+        if (mult > multFor(combo - 1)) comboUp(mult);
+        newRound();
+        renderCombo();
+      } else {
+        misses++;
+        sfx.wrong();
+        if (combo >= COMBO_STEP) {               // 已經有倍率才播「中斷」音效
+          sfx.comboBreak();
+          bumpCombo('break');
+        }
+        combo = 0;
+        renderCombo();
+        tile.classList.remove('miss');
+        void tile.offsetWidth;                 // 重新觸發動畫
+        tile.classList.add('miss');
+        boardWrap.classList.remove('shake');
+        void boardWrap.offsetWidth;
+        boardWrap.classList.add('shake');
+        setTimeout(() => tile.classList.remove('miss'), 300);
+      }
+    });
+
+    /* =====================================================
+       連擊倍率
+       ===================================================== */
+    function multFor(c) {
+      return Math.min(MAX_MULT, 1 + Math.floor(c / COMBO_STEP));
+    }
+
+    const comboEl = $('comboEl'), multEl = $('multEl'), pips = $('pipsEl').children;
+    function renderCombo() {
+      const mult = multFor(combo);
+      comboEl.dataset.mult = mult;
+      multEl.textContent = '×' + mult;
+      // 小格子顯示「距離下一級倍率」的進度；最高倍率時全亮
+      const filled = mult === MAX_MULT ? COMBO_STEP : combo % COMBO_STEP;
+      for (let i = 0; i < pips.length; i++) pips[i].classList.toggle('on', i < filled);
+    }
+
+    function bumpCombo(cls) {
+      comboEl.classList.remove('bump', 'break');
+      void comboEl.offsetWidth;
+      comboEl.classList.add(cls);
+    }
+
+    function comboUp(mult) {
+      sfx.comboUp(mult);
+      bumpCombo('bump');
+      const el = document.createElement('div');
+      el.className = 'combo-flash';
+      el.textContent = 'COMBO ×' + mult;
+      boardWrap.appendChild(el);
+      setTimeout(() => el.remove(), 750);
+    }
+
+    const MULT_COLORS = { 1: 'var(--lime)', 2: 'var(--cyan)', 3: 'var(--yellow)', 4: 'var(--orange)' };
+
+    function showFloat(tile, text, mult = 1) {
+      const wrapRect = boardWrap.getBoundingClientRect();
+      const r = tile.getBoundingClientRect();
+      const el = document.createElement('div');
+      el.className = 'float-text';
+      el.textContent = text;
+      el.style.color = MULT_COLORS[mult];
+      el.style.left = (r.left - wrapRect.left + r.width / 2 - 16) + 'px';
+      el.style.top = (r.top - wrapRect.top + r.height / 2 - 10) + 'px';
+      boardWrap.appendChild(el);
+      setTimeout(() => el.remove(), 650);
+    }
+
+    /* =====================================================
+       計時器（requestAnimationFrame，暫停時不會偷跑）
+       ===================================================== */
+    function loop(ts) {
+      if (state !== 'playing') return;
+      timeLeft -= ts - lastTs;
+      lastTs = ts;
+
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        updateTime();
+        endGame();
+        return;
+      }
+
+      const sec = Math.ceil(timeLeft / 1000);
+      if (sec !== lastSecond) {
+        lastSecond = sec;
+        if (sec <= 10) sfx.tick();
+      }
+      updateTime();
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function updateTime() {
+      const sec = Math.ceil(timeLeft / 1000);
+      timeEl.textContent = sec;
+      timeEl.classList.toggle('danger', sec <= 10 && state === 'playing');
+
+      const lit = Math.ceil(timeLeft / DURATION * SEGMENTS);
+      const segs = timebar.children;
+      for (let i = 0; i < SEGMENTS; i++) {
+        segs[i].className = 'seg' +
+          (i >= lit ? ' off' : lit <= 4 ? ' alert' : lit <= 8 ? ' warn' : '');
+      }
+    }
+
+    function updateHUD() {
+      scoreEl.textContent = score;
+      bestEl.textContent = Math.max(getBest(), state === 'over' ? 0 : score);
+      gridEl.textContent = `${gridSize}×${gridSize}`;
+    }
+
+    /* =====================================================
+       畫面 & 按鈕狀態
+       ===================================================== */
+    function showScreen(name) {
+      Object.entries(screens).forEach(([k, el]) => el.classList.toggle('show', k === name));
+    }
+
+    function updateButtons() {
+      startBtn.disabled = state !== 'idle' && state !== 'over';
+      pauseBtn.disabled = state !== 'playing' && state !== 'paused';
+      pauseBtn.innerHTML = state === 'paused'
+        ? '▶ 繼續 <span class="key">SPACE</span>'
+        : '❚❚ 暫停 <span class="key">SPACE</span>';
+    }
+
+    function clearTimers() {
+      timers.forEach(clearTimeout);
+      timers = [];
+      cancelAnimationFrame(rafId);
+    }
+
+    /* =====================================================
+       遊戲流程
+       ===================================================== */
+    function startGame() {
+      ensureAudio();
+      clearTimers();
+
+      score = 0;
+      correct = 0;
+      combo = 0;
+      maxCombo = 0;
+      misses = 0;
+      timeLeft = DURATION;
+      lastSecond = 60;
+      gridSize = 2;
+      state = 'countdown';
+      newRound();
+      renderCombo();
+      updateTime();
+      updateButtons();
+
+      // 3、2、1、GO!
+      const countEl = $('countEl');
+      showScreen('count');
+      ['3', '2', '1', 'GO!'].forEach((txt, i) => {
+        timers.push(setTimeout(() => {
+          countEl.textContent = txt;
+          countEl.style.animation = 'none';
+          void countEl.offsetWidth;
+          countEl.style.animation = '';
+          txt === 'GO!' ? sfx.go() : sfx.count();
+        }, i * 600));
+      });
+      timers.push(setTimeout(() => {
+        showScreen(null);
+        state = 'playing';
+        lastTs = performance.now();
+        rafId = requestAnimationFrame(loop);
+        updateButtons();
+      }, 4 * 600));
+    }
+
+    function togglePause() {
+      if (state === 'playing') {
+        state = 'paused';
+        cancelAnimationFrame(rafId);
+        showScreen('pause');
+        sfx.pause();
+      } else if (state === 'paused') {
+        state = 'playing';
+        showScreen(null);
+        sfx.pause();
+        lastTs = performance.now();
+        rafId = requestAnimationFrame(loop);
+      }
+      updateTime();
+      updateButtons();
+    }
+
+    function endGame() {
+      state = 'over';
+      lastScore = score;
+      cancelAnimationFrame(rafId);
+      updateTime();
+      updateButtons();
+      sfx.over();
+
+      // 先讓答案方塊閃一下，告訴玩家剛剛那題的答案
+      const answerTile = board.children[answerIndex];
+      if (answerTile) answerTile.classList.add('reveal');
+
+      const prevBest = getBest();
+      const isRecord = score > prevBest;
+      if (isRecord) save(KEYS.best, score);
+
+      timers.push(setTimeout(() => showResult(isRecord), 1300));
+    }
+
+    function showResult(isRecord) {
+      const rank = [...RANKS].reverse().find((r) => lastScore >= r.min);
+      const total = correct + misses;
+      const acc = total ? Math.round(correct / total * 100) : 0;
+
+      $('resultScore').textContent = lastScore;
+      $('newRecord').hidden = !isRecord;
+      $('rankTitle').textContent = `【${rank.title}】`;
+      $('rankComment').textContent = rank.comment;
+      $('resultStats').textContent = `答對 ${correct} 題 · 最高連擊 ${maxCombo} · 正確率 ${acc}%`;
+
+      // 判斷能不能進前 10 名
+      const list = getBoard();
+      const qualifies = lastScore > 0 &&
+        (list.length < LB_SIZE || lastScore > list[list.length - 1].score);
+
+      const form = $('entryForm'), note = $('entryNote');
+      form.style.display = qualifies ? 'flex' : 'none';
+      note.className = 'entry-note';
+      note.textContent = qualifies
+        ? '進入前 10 名！留下你的名字吧'
+        : (lastScore > 0 ? '這次沒能擠進前 10 名，再接再厲！' : '一題都沒答對……再試一次吧！');
+
+      board.querySelectorAll('.reveal').forEach((t) => t.classList.remove('reveal'));
+      showScreen('result');
+      updateHUD();
+      if (isRecord) setTimeout(sfx.record, 200);
+
+      if (qualifies) {
+        const input = $('nameInput');
+        input.value = load(KEYS.name, '');
+        setTimeout(() => { input.focus(); input.select(); }, 50);
+      }
+    }
+
+    /* =====================================================
+       排行榜
+       ===================================================== */
+    function addToBoard(name, s) {
+      const list = getBoard();
+      const entry = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 6), name, score: s, date: Date.now() };
+      list.push(entry);
+      list.sort((a, b) => b.score - a.score || a.date - b.date);
+      const top = list.slice(0, LB_SIZE);
+      save(KEYS.board, top);
+      return { id: entry.id, place: top.findIndex((e) => e.id === entry.id) + 1 };
+    }
+
+    function renderBoard(highlightId) {
+      const ol = $('leaderboard');
+      const list = getBoard();
+      ol.replaceChildren();
+
+      if (!list.length) {
+        const li = document.createElement('li');
+        li.className = 'empty';
+        li.textContent = '還沒有紀錄，來當第一名吧！';
+        ol.appendChild(li);
+        return;
+      }
+
+      list.forEach((e, i) => {
+        const li = document.createElement('li');
+        if (e.id === highlightId) li.className = 'me';
+
+        const rank = document.createElement('span');
+        rank.className = 'lb-rank';
+        rank.textContent = String(i + 1).padStart(2, '0');
+
+        const name = document.createElement('span');
+        name.className = 'lb-name';
+        name.textContent = e.name;            // 用 textContent，避免名字被當成 HTML
+
+        const sc = document.createElement('span');
+        sc.className = 'lb-score';
+        sc.textContent = e.score;
+
+        li.append(rank, name, sc);
+        ol.appendChild(li);
+      });
+    }
+
+    $('entryForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = $('nameInput').value.trim() || '無名玩家';
+      save(KEYS.name, name);
+      const { id, place } = addToBoard(name, lastScore);
+      renderBoard(id);
+      sfx.click();
+
+      $('entryForm').style.display = 'none';
+      const note = $('entryNote');
+      note.className = 'entry-note ok';
+      note.textContent = `已登錄！目前排名第 ${place} 名`;
+    });
+
+    $('clearBtn').addEventListener('click', () => {
+      if (!confirm('確定要清除排行榜與最高分紀錄嗎？')) return;
+      save(KEYS.board, []);
+      save(KEYS.best, 0);
+      renderBoard();
+      updateHUD();
+    });
+
+    /* =====================================================
+       按鈕 & 鍵盤
+       ===================================================== */
+    function goMenu() {
+      clearTimers();
+      state = 'idle';
+      score = 0;
+      correct = 0;
+      combo = 0;
+      timeLeft = DURATION;
+      gridSize = 2;
+      newRound();
+      renderCombo();
+      updateTime();
+      showScreen('start');
+      updateButtons();
+    }
+
+    startBtn.addEventListener('click', startGame);
+    $('startBigBtn').addEventListener('click', startGame);
+    $('againBtn').addEventListener('click', startGame);
+    $('menuBtn').addEventListener('click', goMenu);
+    pauseBtn.addEventListener('click', togglePause);
+    $('resumeBigBtn').addEventListener('click', togglePause);
+    restartBtn.addEventListener('click', startGame);
+
+    const muteBtn = $('muteBtn');
+    function renderMute() { muteBtn.textContent = muted ? '♪ OFF' : '♪ ON'; }
+    function toggleMute() {
+      muted = !muted;
+      save(KEYS.mute, muted);
+      renderMute();
+      ensureAudio();
+      sfx.click();
+    }
+    muteBtn.addEventListener('click', toggleMute);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;   // 輸入名字時不觸發快捷鍵
+      const k = e.key.toLowerCase();
+      if (k === ' ') {
+        e.preventDefault();
+        togglePause();
+      } else if (k === 'enter') {
+        if (state === 'idle' || state === 'over') { e.preventDefault(); startGame(); }
+      } else if (k === 'r') {
+        startGame();
+      } else if (k === 'm') {
+        toggleMute();
+      }
+    });
+
+    // 切換分頁時自動暫停
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && state === 'playing') togglePause();
+    });
+
+    /* =====================================================
+       初始化
+       ===================================================== */
+    for (let i = 0; i < SEGMENTS; i++) {
+      const seg = document.createElement('div');
+      seg.className = 'seg';
+      timebar.appendChild(seg);
+    }
+    renderMute();
+    renderBoard();
+    goMenu();
+  </script>
+</body>
+</html>
